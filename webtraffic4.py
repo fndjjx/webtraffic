@@ -131,9 +131,9 @@ def eval_iter_multi():
     print(np.std(result))
 
 def eval_iter_multi2(n):
-    para = [train_df.loc[np.random.randint(0,140000)].values[-150:] for i in range(n)]
+    para = [[train_df.loc[np.random.randint(0,140000)].values[1:],train_df.columns.values[1:]] for i in range(n)]
     print(para)
-    tasks = [evall.signature((para[p_index],p_index)) for p_index in range(len(para))]
+    tasks = [evall.signature((para[p_index][0],p_index,para[p_index][1])) for p_index in range(len(para))]
     result_group = group(tasks)()
     with allow_join_result():
         result = result_group.get()
@@ -143,7 +143,7 @@ def eval_iter_multi2(n):
     for i in result:
         if len(i[0])!=0:
             p.extend(i[0])
-            t.extend(para[i[1]][-60:])
+            t.extend(para[i[1]][0][-60:])
     
     return p,t
 
@@ -168,12 +168,11 @@ def eval_loop(total_n,each_n):
     print("result")
     print(len(p))
     print(len(t))
-    print(smape_fast(np.array(t),np.array(p)))
+    print(smape2(np.array(t),np.array(p)))
 
 def eval_loop2(base,n):
-    para = [train_df.loc[base+i].values[-150:] for i in range(n)]
-    print(para)
-    tasks = [evall.signature((para[p_index],p_index)) for p_index in range(len(para))]
+    para = [[train_df.loc[base+i].values[1:],train_df.columns.values[1:]] for i in range(n)]
+    tasks = [evall.signature((para[p_index][0],p_index,para[p_index][1])) for p_index in range(len(para))]
     result_group = group(tasks)()
     with allow_join_result():
         result = result_group.get()
@@ -183,12 +182,29 @@ def eval_loop2(base,n):
     for i in result:
         if len(i[0])!=0:
             p.extend(i[0])
-            t.extend(para[i[1]][-60:])
+            t.extend(para[i[1]][0][-60:])
 
     print("result")
     print(len(p))
     print(len(t))
+    count = 0
+    for i in p:
+        if i<0:
+            count+=1
+    print(count)
+    print(smape(np.array(t),np.array(p)))
     print(smape_fast(np.array(t),np.array(p)))
+    print(smape2(np.array(t),np.array(p)))
+    return smape2(np.array(t),np.array(p))
+
+def final_predict(base,n):
+    para = [[train_df.loc[base+i].values[0], train_df.loc[base+i].values[1:],train_df.columns.values[1:]] for i in range(n)]
+    tasks = [predict.signature((para[p_index][0],para[p_index][1],para[p_index][2])) for p_index in range(len(para))]
+    result_group = group(tasks)()
+    with allow_join_result():
+        result = result_group.get()
+
+    pickle.dump("{}".format(base),result)
 
     
 
@@ -215,12 +231,25 @@ def smape_fast(y_true, y_pred):
     out *= (200.0 / y_true.shape[0])
     return out
 
+def smape2(y_true, y_pred):
+    denominator = (np.abs(y_true) + np.abs(y_pred)) / 200.0
+    diff = np.abs(y_true - y_pred) / denominator
+    diff[denominator == 0] = 0.0
+    return np.nanmean(diff)
+
 #s1 = train_df.loc[128447].values[-150:]
 #print(s1)
 #eval(s1)
 t0 = time.time()
 #eval_iter_multi2(100)
-eval_loop2(5000,1000)
+
+#rrrr=[]
+#for i in range(14):
+#    rrrr.append(eval_loop2(i*8000,100))
+eval_loop2(10000,1)
+
 t1 = time.time()
+
+print(rrrr)
 print("time")
 print(t1-t0)
